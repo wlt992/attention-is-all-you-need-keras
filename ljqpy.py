@@ -58,19 +58,35 @@ def FindAllHrefs(url, content=None, regex=''):
 		ret.add( urllib.parse.urljoin(url, xx) )
 	if regex != '': ret = (x for x in ret if re.match(regex, x))
 	return list(ret)
-
+# 修改百度翻译 api 
+import hashlib, httplib2, json, random
 def Translate(txt):
-	postdata = {'from': 'en', 'to': 'zh', 'transtype': 'realtime', 'query': txt}
-	url = "http://fanyi.baidu.com/v2transapi"
-	try:
-		resp = requests.post(url, data=postdata, 
-					   headers={'Referer': 'http://fanyi.baidu.com/'})
-		ret = resp.json()
-		ret = ret['trans_result']['data'][0]['dst']
-	except Exception as e:
-		print(e)
-		ret = ''
-	return ret
+    # appid 和 secretKey 通过注册百度翻译开放平台获取：http://api.fanyi.baidu.com/api/trans/product/index
+    appid='xxx';secretKey = 'xxx'
+    httpClient = None
+    myurl = '/api/trans/vip/translate'
+    fromLang = 'en'
+    toLang = 'zh'
+    salt = random.randint(32768, 65536)
+    sign = appid + txt + str(salt) + secretKey
+    m1 = hashlib.md5()
+    m1.update(sign.encode())
+    sign = m1.hexdigest()
+    myurl = myurl+'?appid='+appid+'&q='+txt+'&from='+fromLang+'&to='+toLang+'&salt='+str(salt)+'&sign='+sign
+    try:
+        httpClient = httplib2.HTTPSConnectionWithTimeout('api.fanyi.baidu.com')
+        httpClient.request('GET', myurl)
+        resp = httpClient.getresponse()
+        resp = resp.read()
+        ret = json.loads(resp)
+        ret = ret['trans_result'][0]['dst']
+    except Exception as e:
+        print(e)
+        ret = ''
+    finally:
+        if httpClient:
+            httpClient.close()
+    return ret
 
 def IsChsStr(z):
 	return re.search('^[\u4e00-\u9fa5]+$', z) is not None
